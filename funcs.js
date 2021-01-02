@@ -1,5 +1,6 @@
-const { Builder, By, Key, until } = require('selenium-webdriver')
+const { Builder, By, Key, until, } = require('selenium-webdriver')
 const fs = require('fs')
+const https = require('https')
 
 // Return a promise that resolves after a specific number of milliseconds
 module.exports.sleep = (ms) => new Promise((resolve, reject) => { setTimeout(() => { resolve() }, ms) })
@@ -22,33 +23,59 @@ module.exports.sanitizeQuery = (query) => {
     return temp
 }
 
-// Grab the first Google image result for the provided keyword and return it in Base64 encoding
-// You can opt not to sanitize the query if you're sure it already is
-module.exports.grabImage = async (query, sanitize = true) => {
-    if (sanitize) query = this.sanitizeQuery(query)
-    let driver = await new Builder().forBrowser('chrome').build();
-    let base64Image = ''
-    try {
-        await driver.get('https://www.google.com/search?tbm=isch&q=' + query);
-        await (await driver.findElement(By.css('img.Q4LuWd'))).click();
-        await driver.wait(until.elementLocated(By.css('img.n3VNCb')), 2000);
-        base64Image = await (await driver.findElement(By.css('img.n3VNCb'))).getAttribute('src')
-    } finally {
-        await driver.quit();
-    }
-    return base64Image
+// Returns a promise; Calls the provided function and resolves if it completes within the provided timeframe, else rejects
+module.exports.timeOutFunc = (func, msDelay) => {
+    return new Promise((resolve, reject) => {
+        this.sleep(msDelay).then(() => {
+            reject()
+        })
+        func()
+        resolve()
+    })
 }
 
-// Save a base64 encoded image to the file system
+// Grab the first Google image result for the provided keyword and return it's URL
+// You can opt not to sanitize the query if you're sure it already is
+module.exports.grabImageURL = async (query, sanitize = true, msWait = 5000) => {
+    if (sanitize) query = this.sanitizeQuery(query)
+    let driver = await new Builder().forBrowser('chrome').build()
+    let imageURL = ''
+    try {
+        await driver.get('https://www.google.com/search?tbm=isch&q=' + query)
+        await (await driver.findElement(By.css('img.Q4LuWd'))).click()
+        await driver.wait(until.elementLocated(By.css('img.n3VNCb')), msWait)
+        let targetImage = await driver.findElement(By.css('img.n3VNCb'))
+        let ms = 0
+        // A low res base64 thumbnail is placed in the 'src' for a short time while the main source image loads
+        // We wait for the main image by checking that the 'src' starts with 'http' (as opposed to 'data:' for a base64 data URL)
+        // Like any other wait in the function, an error is thrown if we wait longer that 'msWait' milliseconds
+        while (!(await targetImage.getAttribute('src')).startsWith('http') && ms < msWait) {
+            await this.sleep(500)
+            ms += 500
+        }
+        if (!(await targetImage.getAttribute('src')).startsWith('http')) throw 'Image didn\'t load fast enough'
+        imageURL = await targetImage.getAttribute('src')
+    } finally {
+        await driver.quit()
+    }
+    return imageURL
+}
+
+// Save an image from a URL to the filesystem
 // Optionally skip ensuring the destination directory exists if you're sure it does
-module.exports.saveBase64Image = (base64Image, destDir, fileName, ensureDir = true) => {
+module.exports.saveImageFromURL = (imageURL, destDir, fileName, ensureDir = true) => {
     if (ensureDir) this.mkdirIfNeeded(destDir)
-    let matches = base64Image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
-    let response = {}
-    if (matches.length !== 3) throw 'Invalid input string'
-    response.type = matches[1];
-    response.data = Buffer.from(matches[2], 'base64');
-    fs.writeFileSync(destDir + '/' + fileName + '.' + response.type.split('/')[1], response.data)
+    return new Promise((resolve, reject) => {
+        let extension = imageURL.split('.').pop()
+        let file = fs.createWriteStream(destDir + '/' + fileName + '.' + extension)
+        https.get(imageURL, (response) => {
+            response.pipe(file);
+            response.on('end', () => {
+                if (response.statusCode != 200) reject(response.statusMessage)
+                else resolve()
+            })
+        })
+    })
 }
 
 // Read a comma (or newline, or both) separated list of queries from a file
@@ -64,7 +91,7 @@ module.exports.grabAndSaveSeveralImages = async (queries, destDir, quiet = false
     for (let i = 0; i < queries.length; i++) {
         if (!quiet) console.log((i + 1) + ' of ' + queries.length + '...')
         try {
-            this.saveBase64Image(await this.grabImage(queries[i]), destDir, queries[i], false)
+            this.saveImageFromURL(await this.grabImageURL(queries[i]), destDir, queries[i], false)
             if (!quiet) console.log('Saved.')
         } catch (err) {
             if (!quiet) console.error('Error: ' + err)
