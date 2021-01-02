@@ -81,10 +81,8 @@ module.exports.saveImageFromURL = (imageURL, destDir, fileName, ensureDir = true
 // Read a comma (or newline, or both) separated list of queries from a file
 module.exports.readQueriesFromFile = (filePath) => fs.readFileSync(filePath).toString().split('\n').join(',').split(',').map(str => str.trim()).filter(str => str != '')
 
-// Grab and save a Google image for each of several queries
-// A delay (12 minutes by default) is needed between each query to avoid rate limiting
-// Google WILL BAN your IP if you send requests too often; experiment at your own risk
-module.exports.grabAndSaveSeveralImages = async (queries, destDir, quiet = false, minutesDelay = 12) => {
+// Grab and save a Google image for each of several queries (with a delay between queries)
+module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, quiet = false) => {
     this.mkdirIfNeeded(destDir)
     let msDelay = minutesDelay * 60 * 1000
     queries = queries.map(query => this.sanitizeQuery(query))
