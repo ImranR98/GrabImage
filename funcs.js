@@ -48,7 +48,7 @@ module.exports.saveBase64Image = (base64Image, destDir, fileName, ensureDir = tr
     if (matches.length !== 3) throw 'Invalid input string'
     response.type = matches[1];
     response.data = Buffer.from(matches[2], 'base64');
-    fs.writeFileSync(destDir + '/' + fileName + '.' + response.type, response.data)
+    fs.writeFileSync(destDir + '/' + fileName + '.' + response.type.split('/')[1], response.data)
 }
 
 // Read a comma (or newline, or both) separated list of queries from a file
@@ -64,7 +64,7 @@ module.exports.grabAndSaveSeveralImages = async (queries, destDir, quiet = false
     for (let i = 0; i < queries.length; i++) {
         if (!quiet) console.log((i + 1) + ' of ' + queries.length + '...')
         try {
-            this.saveBase64Image(await this.grabImage(queries[i]), destDir, query[i], false)
+            this.saveBase64Image(await this.grabImage(queries[i]), destDir, queries[i], false)
             if (!quiet) console.log('Saved.')
         } catch (err) {
             if (!quiet) console.error('Error: ' + err)
