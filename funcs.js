@@ -52,7 +52,7 @@ module.exports.saveBase64Image = (base64Image, destDir, fileName, ensureDir = tr
 }
 
 // Read a comma (or newline, or both) separated list of queries from a file
-module.exports.readQueriesFromFile = (filePath) => fs.readFileSync(filePath).toString().split('\n').join(',').split(',')
+module.exports.readQueriesFromFile = (filePath) => fs.readFileSync(filePath).toString().split('\n').join(',').split(',').map(str => str.trim())
 
 // Grab and save a Google image for each of several queries
 // A delay (12 minutes by default) is needed between each query to avoid rate limiting
