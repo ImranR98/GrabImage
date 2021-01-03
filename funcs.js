@@ -27,7 +27,6 @@ module.exports.sanitizeQuery = (query) => {
 // Grab the first Google image result for the provided keyword and return it's URL (or its thumbnail in base64 if the URL does not load in time)
 // You can opt not to sanitize the query if you're sure it already is
 module.exports.grabImageURLOrBase64 = async (query, sanitize, index, msWait) => {
-    console.log('A')
     if (sanitize) query = this.sanitizeQuery(query)
     let driver = await new Builder().forBrowser('chrome').build()
     let imageURL = ''
