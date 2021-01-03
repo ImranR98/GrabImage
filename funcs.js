@@ -72,7 +72,7 @@ module.exports.saveImageFromURL = (imageURL, destDir, fileName, ensureDir = true
 module.exports.readQueriesFromFile = (filePath) => fs.readFileSync(filePath).toString().split('\n').join(',').split(',').map(str => str.trim()).filter(str => str != '')
 
 // Grab and save a Google image for each of several queries (with a delay between queries)
-module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, skipExisting = false, quiet = false) => {
+module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, msWait, skipExisting = false, randomizeDelay = false, quiet = false) => {
     this.mkdirIfNeeded(destDir)
     let msDelay = minutesDelay * 60 * 1000
     queries = queries.map(query => this.sanitizeQuery(query))
@@ -88,14 +88,16 @@ module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay,
         }
         if (cont) {
             try {
-                this.saveImageFromURL(await this.grabImageURL(queries[i]), destDir, queries[i], false)
+                this.saveImageFromURL(await this.grabImageURL(queries[i], false, msWait), destDir, queries[i], false)
                 if (!quiet) console.log('Saved.')
             } catch (err) {
                 if (!quiet) console.error('Error: ' + err)
             }
             if (i < queries.length - 1) {
-                if (!quiet) console.log('Waiting ' + minutesDelay + ' minutes...')
-                await this.sleep(msDelay)
+                let delay = msDelay
+                if (randomizeDelay) delay = (Math.random() * (msDelay / 2)) + (msDelay / 2)
+                if (!quiet) console.log('Waiting ' + (Math.round((delay / 1000 / 60) * 100) / 100) + ' minutes...')
+                await this.sleep(delay)
             }
         }
     }
