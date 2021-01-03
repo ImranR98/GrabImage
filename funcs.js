@@ -24,12 +24,13 @@ module.exports.sanitizeQuery = (query) => {
     return temp
 }
 
-// Grab the first Google image result for the provided keyword and return it's URL
+// Grab the first Google image result for the provided keyword and return it's URL (or its thumbnail in base64 if the URL does not load in time)
 // You can opt not to sanitize the query if you're sure it already is
-module.exports.grabImageURL = async (query, sanitize = true, msWait = 5000) => {
+module.exports.grabImageURLOrBase64 = async (query, sanitize = true, msWait = 5000) => {
     if (sanitize) query = this.sanitizeQuery(query)
     let driver = await new Builder().forBrowser('chrome').build()
     let imageURL = ''
+    let base64Image = ''
     try {
         await driver.get('https://www.google.com/search?tbm=isch&q=' + query)
         await (await driver.findElement(By.css('img.Q4LuWd'))).click()
@@ -43,12 +44,13 @@ module.exports.grabImageURL = async (query, sanitize = true, msWait = 5000) => {
             await this.sleep(500)
             ms += 500
         }
-        if (!(await targetImage.getAttribute('src')).startsWith('http')) throw 'Image didn\'t load fast enough'
-        imageURL = await targetImage.getAttribute('src')
+        let data = await targetImage.getAttribute('src')
+        if (data.startsWith('http')) imageURL = data
+        else base64Image = data
     } finally {
         await driver.quit()
     }
-    return imageURL
+    return { imageURL, base64Image }
 }
 
 // Save an image from a URL to the filesystem
@@ -68,8 +70,26 @@ module.exports.saveImageFromURL = (imageURL, destDir, fileName, ensureDir = true
     })
 }
 
+// Save a base64 encoded image to the file system
+// Optionally skip ensuring the destination directory exists if you're sure it does
+module.exports.saveImageFromBase64 = (base64Image, destDir, fileName, ensureDir = true) => {
+    if (ensureDir) this.mkdirIfNeeded(destDir)
+    let matches = base64Image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+    let response = {}
+    if (matches.length !== 3) throw 'Invalid input string'
+    response.type = matches[1];
+    response.data = Buffer.from(matches[2], 'base64');
+    fs.writeFileSync(destDir + '/' + fileName + '.' + response.type.split('/')[1], response.data)
+}
+
 // Read a comma (or newline, or both) separated list of queries from a file
 module.exports.readQueriesFromFile = (filePath) => fs.readFileSync(filePath).toString().split('\n').join(',').split(',').map(str => str.trim()).filter(str => str != '')
+
+// Print a string on the current line instead of a new one
+module.exports.oneLineLog = (value) => {
+    process.stdout.write("\r\x1b[K") // Delete anything on the current line
+    process.stdout.write(typeof value == 'string' ? value : JSON.stringify(value)) // Print value w/o adding a newline
+}
 
 // Grab and save a Google image for each of several queries (with a delay between queries)
 module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, msWait, skipExisting = false, randomizeDelay = false, quiet = false) => {
@@ -77,29 +97,39 @@ module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay,
     let msDelay = minutesDelay * 60 * 1000
     queries = queries.map(query => this.sanitizeQuery(query))
     for (let i = 0; i < queries.length; i++) {
-        if (!quiet) console.log((i + 1) + ' of ' + queries.length + '...')
+        if (!quiet) this.oneLineLog('Query ' + (i + 1) + ' of ' + queries.length + '...')
         let cont = true
         if (skipExisting) {
             let existingImage = glob.sync(destDir + '/' + queries[i] + '.*')[0]
             if (existingImage) {
                 cont = false
-                if (!quiet) console.log('There is alread an image matching this query, so it will be skipped.')
+                if (!quiet) {
+                    this.oneLineLog('')
+                    console.warn('There is alread an image matching \'' + queries[i] + '\', so it will be skipped.')
+                }
             }
         }
         if (cont) {
             try {
-                this.saveImageFromURL(await this.grabImageURL(queries[i], false, msWait), destDir, queries[i], false)
-                if (!quiet) console.log('Saved.')
+                let imageData = await this.grabImageURLOrBase64(queries[i], false, msWait)
+                if (imageData.imageURL != '') await this.saveImageFromURL(imageData.imageURL, destDir, queries[i], false)
+                else await this.saveImageFromBase64(imageData.base64Image, destDir, queries[i], false)
             } catch (err) {
-                if (!quiet) console.error('Error: ' + err)
+                if (!quiet) {
+                    this.oneLineLog('')
+                    console.error('Error for query \'' + queries[i] + '\': ' + err)
+                }
             }
             if (i < queries.length - 1) {
                 let delay = msDelay
                 if (randomizeDelay) delay = (Math.random() * (msDelay / 2)) + (msDelay / 2)
-                if (!quiet) console.log('Waiting ' + (Math.round((delay / 1000 / 60) * 100) / 100) + ' minutes...')
+                if (!quiet) this.oneLineLog('Query ' + (i + 2) + ': Waiting ' + (Math.round((delay / 1000 / 60) * 100) / 100) + ' minutes to search...')
                 await this.sleep(delay)
             }
         }
     }
-    if (!quiet) console.log('Done')
+    if (!quiet) {
+        this.oneLineLog('')
+        console.log('Done')
+    }
 }
