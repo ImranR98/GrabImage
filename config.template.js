@@ -4,6 +4,6 @@
 module.exports.config = {
     queriesFilePath: '/home/user/Downloads/ISBNs.txt',
     outputImagesDir: '/home/user/Downloads/ISBNImages',
-    minutesDelay: 12, // A delay (12 minutes by default) is needed between each query to avoid rate limiting (Google WILL BAN your IP if you send requests too often; experiment at your own risk)
+    minutesDelay: 5, // A delay (5 minutes by default) is needed between each query to avoid rate limiting (Google WILL BAN your IP if you send requests too often; experiment at your own risk)
     skipExisting: true // Skip a query if an image for it is found to already exist
 }
