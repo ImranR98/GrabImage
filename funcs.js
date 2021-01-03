@@ -115,7 +115,7 @@ module.exports.oneLineLog = (value) => {
 module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, msWait, maxImageIndex, skipExisting, randomizeDelay, quiet) => {
     if (!quiet) console.log(
         `Images for ${queries.length} queries will be saved in '${destDir}'${skipExisting ? ', except for those for which an image already exists there.' : '.'}
-There will be a delay of ${randomizeDelay ? `between ${(Math.round((0.75 * minutesDelay) * 100) / 100)} and ${minutesDelay}` : minutesDelay} minutes between each search.
+There will be a delay of ${randomizeDelay ? `between ${(Math.round((0.5 * minutesDelay) * 100) / 100)} and ${minutesDelay}` : minutesDelay} minutes between each search.
 In case of any error when downloading an image result, the next result will be downloaded instead, up to a maximum of the first ${(maxImageIndex + 1)} results.\n`
     )
     this.mkdirIfNeeded(destDir)
