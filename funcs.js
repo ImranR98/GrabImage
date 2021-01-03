@@ -1,6 +1,7 @@
 const { Builder, By, Key, until, } = require('selenium-webdriver')
 const fs = require('fs')
 const https = require('https')
+const glob = require('glob')
 
 // Return a promise that resolves after a specific number of milliseconds
 module.exports.sleep = (ms) => new Promise((resolve, reject) => { setTimeout(() => { resolve() }, ms) })
@@ -21,17 +22,6 @@ module.exports.sanitizeQuery = (query) => {
         else temp += '+'
     }
     return temp
-}
-
-// Returns a promise; Calls the provided function and resolves if it completes within the provided timeframe, else rejects
-module.exports.timeOutFunc = (func, msDelay) => {
-    return new Promise((resolve, reject) => {
-        this.sleep(msDelay).then(() => {
-            reject()
-        })
-        func()
-        resolve()
-    })
 }
 
 // Grab the first Google image result for the provided keyword and return it's URL
@@ -82,21 +72,31 @@ module.exports.saveImageFromURL = (imageURL, destDir, fileName, ensureDir = true
 module.exports.readQueriesFromFile = (filePath) => fs.readFileSync(filePath).toString().split('\n').join(',').split(',').map(str => str.trim()).filter(str => str != '')
 
 // Grab and save a Google image for each of several queries (with a delay between queries)
-module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, quiet = false) => {
+module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, skipExisting = false, quiet = false) => {
     this.mkdirIfNeeded(destDir)
     let msDelay = minutesDelay * 60 * 1000
     queries = queries.map(query => this.sanitizeQuery(query))
     for (let i = 0; i < queries.length; i++) {
         if (!quiet) console.log((i + 1) + ' of ' + queries.length + '...')
-        try {
-            this.saveImageFromURL(await this.grabImageURL(queries[i]), destDir, queries[i], false)
-            if (!quiet) console.log('Saved.')
-        } catch (err) {
-            if (!quiet) console.error('Error: ' + err)
+        let cont = true
+        if (skipExisting) {
+            let existingImage = glob.sync(destDir + '/' + queries[i] + '.*')[0]
+            if (existingImage) {
+                cont = false
+                if (!quiet) console.log('There is alread an image matching this query, so it will be skipped.')
+            }
         }
-        if (i < queries.length - 1) {
-            if (!quiet) console.log('Waiting ' + minutesDelay + ' minutes...')
-            await this.sleep(msDelay)
+        if (cont) {
+            try {
+                this.saveImageFromURL(await this.grabImageURL(queries[i]), destDir, queries[i], false)
+                if (!quiet) console.log('Saved.')
+            } catch (err) {
+                if (!quiet) console.error('Error: ' + err)
+            }
+            if (i < queries.length - 1) {
+                if (!quiet) console.log('Waiting ' + minutesDelay + ' minutes...')
+                await this.sleep(msDelay)
+            }
         }
     }
     if (!quiet) console.log('Done')
