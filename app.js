@@ -3,10 +3,12 @@ const config = require('./config').config
 
 
 const loop = async () => {
-    try {
-        await funcs.grabAndSaveSeveralImages(queries, config.outputImagesDir, config.minutesDelay, config.msWait, config.skipExisting, config.randomizeDelay)
-    } catch (err) {
-        console.error('Error: ' + err)
+    while (true) { // Keep trying until manually aborted
+        try {
+            await funcs.grabAndSaveSeveralImages(queries, config.outputImagesDir, config.minutesDelay, config.msWait, config.skipExisting, config.randomizeDelay)
+        } catch (err) {
+            console.error('Error: ' + err)
+        }
     }
 }
 
