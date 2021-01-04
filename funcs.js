@@ -101,6 +101,7 @@ module.exports.processQuery = async (query, destDir, maxImageIndex, msWait, msDe
         }
         index++
     }
+    return (index - 1)
 }
 
 // Read a comma (or newline, or both) separated list of queries from a file
@@ -114,16 +115,10 @@ module.exports.oneLineLog = (value) => {
 
 // Save an image for each of several queries (with a delay between queries)
 module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, msWait, maxImageIndex, skipExisting, randomizeDelay, quiet) => {
-    if (!quiet) console.log(
-        `Images for ${queries.length} queries will be saved in '${destDir}'${skipExisting ? ', except for those for which an image already exists there.' : '.'}
-There will be a delay of ${randomizeDelay ? `between ${(Math.round((0.5 * minutesDelay) * 100) / 100)} and ${minutesDelay}` : minutesDelay} minutes between each search.
-In case of any error when downloading an image result, the next result will be downloaded instead, up to a maximum of the first ${(maxImageIndex + 1)} results.\n`
-    )
     this.mkdirIfNeeded(destDir)
     let msDelay = minutesDelay * 60 * 1000
     queries = queries.map(query => this.sanitizeQuery(query))
     for (let i = 0; i < queries.length; i++) {
-        if (!quiet) this.oneLineLog('Query ' + (i + 1) + ' of ' + queries.length + '...')
         let cont = true
         if (skipExisting) {
             let existingImage = glob.sync(destDir + '/' + queries[i] + '.*')[0]
@@ -132,20 +127,28 @@ In case of any error when downloading an image result, the next result will be d
             }
         }
         if (cont) {
+            if (!quiet) this.oneLineLog('Query ' + (i + 1) + ' of ' + queries.length + ': Searching...')
             let delay = msDelay
             if (randomizeDelay) delay = (Math.random() * (msDelay / 2)) + (msDelay / 2)
             try {
-                await this.processQuery(queries[i], destDir, maxImageIndex, msWait, msDelay, false, false)
+                let indexSaved = await this.processQuery(queries[i], destDir, maxImageIndex, msWait, msDelay, false, false)
+                if (!quiet) {
+                    this.oneLineLog('')
+                    console.log('Query ' + (i + 1) + ' of ' + queries.length + ': Result ' + (indexSaved + 1) + ' saved.')
+                }
             } catch (err) {
                 if (!quiet) {
                     this.oneLineLog('')
-                    console.error('Error for query \'' + queries[i] + '\': ' + err)
+                    console.error('Query ' + (i + 1) + ' of ' + queries.length + ': Error searching for \'' + queries[i] + '\': ' + err + '.')
                 }
             }
             if (i < queries.length - 1) {
-                if (!quiet) this.oneLineLog('Query ' + (i + 2) + ': Waiting ' + (Math.round((delay / 1000 / 60) * 100) / 100) + ' minutes to search...')
+                if (!quiet) this.oneLineLog('Query ' + (i + 2) + ' of ' + queries.length + ': Waiting ' + (Math.round((delay / 1000 / 60) * 100) / 100) + ' minutes to search...')
                 await this.sleep(delay)
             }
+        } else {
+            this.oneLineLog('')
+            console.warn('Query ' + (i + 1) + ' of ' + queries.length + ': Skipped as image already exists.')
         }
     }
     if (!quiet) {
