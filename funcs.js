@@ -115,7 +115,11 @@ module.exports.oneLineLog = (value) => {
 
 module.exports.nowString = () => {
     let now = new Date()
-    return `${now.getHours()}:${now.getMinutes()}`
+    let hour = now.getHours().toString()
+    let minute = now.getMinutes().toString()
+    hour.length == 1 ? hour = '0' + hour : null
+    minute.length == 1 ? minute = '0' + minute : null
+    return `${hour}:${minute}`
 }
 
 // Save an image for each of several queries (with a delay between queries)
