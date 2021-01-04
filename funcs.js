@@ -89,10 +89,11 @@ module.exports.processQuery = async (query, destDir, maxImageIndex, msWait, msDe
     if (ensureDir) this.mkdirIfNeeded(destDir)
     if (sanitize) query = this.sanitizeQuery(query)
     let index = 0
-    while (index <= maxImageIndex) {
+    let imageData = null
+    while (index <= maxImageIndex && !imageData) {
         if (index != 0) await this.sleep(msDelay)
         try {
-            let imageData = await this.grabImageURLOrBase64(query, false, index, msWait)
+            imageData = await this.grabImageURLOrBase64(query, false, index, msWait)
             if (imageData.imageURL != '') await this.saveImageFromURL(imageData.imageURL, destDir, query, false)
             else await this.saveImageFromBase64(imageData.base64Image, destDir, query, false)
         } catch (err) {
