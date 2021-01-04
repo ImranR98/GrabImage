@@ -113,6 +113,11 @@ module.exports.oneLineLog = (value) => {
     process.stdout.write(typeof value == 'string' ? value : JSON.stringify(value)) // Print value w/o adding a newline
 }
 
+module.exports.nowString = () => {
+    let now = new Date()
+    return `${now.getHours()}:${now.getMinutes()}`
+}
+
 // Save an image for each of several queries (with a delay between queries)
 module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay, msWait, maxImageIndex, skipExisting, randomizeDelay, quiet) => {
     this.mkdirIfNeeded(destDir)
@@ -127,32 +132,32 @@ module.exports.grabAndSaveSeveralImages = async (queries, destDir, minutesDelay,
             }
         }
         if (cont) {
-            if (!quiet) this.oneLineLog('Query ' + (i + 1) + ' of ' + queries.length + ': Searching...')
+            if (!quiet) this.oneLineLog(this.nowString() + ': Query ' + (i + 1) + ' of ' + queries.length + ': Searching...')
             let delay = msDelay
             if (randomizeDelay) delay = (Math.random() * (msDelay / 2)) + (msDelay / 2)
             try {
                 let indexSaved = await this.processQuery(queries[i], destDir, maxImageIndex, msWait, msDelay, false, false)
                 if (!quiet) {
                     this.oneLineLog('')
-                    console.log('Query ' + (i + 1) + ' of ' + queries.length + ': Result ' + (indexSaved + 1) + ' saved.')
+                    console.log(this.nowString() + ': Query ' + (i + 1) + ' of ' + queries.length + ': Result ' + (indexSaved + 1) + ' saved.')
                 }
             } catch (err) {
                 if (!quiet) {
                     this.oneLineLog('')
-                    console.error('Query ' + (i + 1) + ' of ' + queries.length + ': Error searching for \'' + queries[i] + '\': ' + err + '.')
+                    console.error(this.nowString() + ': Query ' + (i + 1) + ' of ' + queries.length + ': Error searching for \'' + queries[i] + '\': ' + err + '.')
                 }
             }
             if (i < queries.length - 1) {
-                if (!quiet) this.oneLineLog('Query ' + (i + 2) + ' of ' + queries.length + ': Waiting ' + (Math.round((delay / 1000 / 60) * 100) / 100) + ' minutes to search...')
+                if (!quiet) this.oneLineLog(this.nowString() + ': Query ' + (i + 2) + ' of ' + queries.length + ': Waiting ' + (Math.round((delay / 1000 / 60) * 100) / 100) + ' minutes to search...')
                 await this.sleep(delay)
             }
         } else {
             this.oneLineLog('')
-            console.warn('Query ' + (i + 1) + ' of ' + queries.length + ': Skipped as image already exists.')
+            console.warn(this.nowString() + ': Query ' + (i + 1) + ' of ' + queries.length + ': Skipped as image already exists.')
         }
     }
     if (!quiet) {
         this.oneLineLog('')
-        console.log('Done.')
+        console.log(this.nowString() + ': Done.')
     }
 }
